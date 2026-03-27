@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/dist/
+apps/*/coverage/
+apps/*/.next/
+postgres_data/
+/generated/prisma

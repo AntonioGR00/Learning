@@ -1,0 +1,6 @@
+export enum EducationStage {
+  ESO = 'ESO',
+  BACHILLERATO = 'BACHILLERATO',
+  GRADO_MEDIO = 'GRADO_MEDIO',
+  GRADO_SUPERIOR = 'GRADO_SUPERIOR',
+}
