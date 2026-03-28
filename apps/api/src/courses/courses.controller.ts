@@ -38,7 +38,7 @@ export class CoursesController {
     return this.coursesService.list(user);
   }
 
-  @Roles(Role.ADMIN, Role.TEACHER)
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,

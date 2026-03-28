@@ -11,11 +11,13 @@ enum Role {
   ADMIN
   TEACHER
   STUDENT
+  FAMILY
 }
 
 enum SubmissionStatus {
   DRAFT
   SUBMITTED
+  DISQUALIFIED
 }
 
 enum AttendanceStatus {
@@ -24,10 +26,28 @@ enum AttendanceStatus {
   LATE
 }
 
+enum AttendanceJustificationStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AssignmentDeliveryMode {
+  PLATFORM
+  FILE_UPLOAD
+}
+
 enum AnnouncementAudience {
   ALL
   TEACHERS
   STUDENTS
+}
+
+enum NotificationType {
+  ASSIGNMENT_CREATED
+  ANNOUNCEMENT_CREATED
+  GRADE_PUBLISHED
 }
 
 enum EducationStage {
@@ -55,6 +75,9 @@ model User {
   announcements Announcement[]
   sentMessages  Message[]      @relation("MessageSender")
   receivedMessages Message[]   @relation("MessageRecipient")
+  notifications Notification[]
+  familyLinksAsGuardian FamilyStudentLink[] @relation("FamilyGuardian")
+  familyLinksAsStudent FamilyStudentLink[] @relation("FamilyStudent")
 }
 
 model Message {
@@ -118,7 +141,11 @@ model Assignment {
   title          String
   description    String?
   dueDate        DateTime?
+  deliveryMode   AssignmentDeliveryMode @default(PLATFORM)
+  durationMinutes Int?
+  secureMode     Boolean      @default(false)
   attachmentUrl  String?
+  questions      Json?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -133,8 +160,11 @@ model Submission {
   assignmentId   Int
   studentId      Int
   content        String?
+  fileUrl        String?
   status         SubmissionStatus  @default(DRAFT)
   submittedAt    DateTime?
+  terminatedAt   DateTime?
+  terminationReason String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   assignment     Assignment        @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -161,6 +191,11 @@ model Attendance {
   date        DateTime
   status      AttendanceStatus
   notes       String?
+  justificationUrl String?
+  justificationMessage String?
+  justificationStatus AttendanceJustificationStatus @default(NONE)
+  justificationReviewComment String?
+  justificationReviewedAt DateTime?
   createdAt   DateTime         @default(now())
   course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   student     User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -182,6 +217,35 @@ model Announcement {
   course      Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
   @@index([courseId, createdAt])
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  recipientId Int
+  type        NotificationType
+  title       String
+  body        String
+  link        String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  recipient   User             @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
+  @@index([recipientId, createdAt])
+}
+
+model FamilyStudentLink {
+  id           Int      @id @default(autoincrement())
+  familyUserId Int
+  studentId    Int
+  relationship String?
+  createdAt    DateTime @default(now())
+  familyUser   User     @relation("FamilyGuardian", fields: [familyUserId], references: [id], onDelete: Cascade)
+  student      User     @relation("FamilyStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([familyUserId, studentId])
+  @@index([familyUserId])
+  @@index([studentId])
 }
 
 model TrainingFamily {

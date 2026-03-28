@@ -9,12 +9,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { EducationStage } from '../common/enums/education-stage.enum';
 import { Role } from '../common/enums/role.enum';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateFamilyDto } from './dto/create-family.dto';
+import { CreateFamilyLinkDto } from './dto/create-family-link.dto';
 import { FamiliesService } from './families.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,5 +40,29 @@ export class FamiliesController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.familiesService.remove(id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Get('links')
+  listLinks() {
+    return this.familiesService.listLinks();
+  }
+
+  @Roles(Role.ADMIN)
+  @Post('links')
+  createLink(@Body() dto: CreateFamilyLinkDto) {
+    return this.familiesService.createLink(dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @Delete('links/:id')
+  removeLink(@Param('id', ParseIntPipe) id: number) {
+    return this.familiesService.removeLink(id);
+  }
+
+  @Roles(Role.FAMILY)
+  @Get('portal')
+  portal(@CurrentUser() user: { sub: number }) {
+    return this.familiesService.portal(user.sub);
   }
 }

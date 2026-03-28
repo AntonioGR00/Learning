@@ -2,8 +2,11 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
@@ -52,6 +55,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const room = this.userRoom(payload.sub);
       await client.join(room);
       client.data.userId = payload.sub;
+      this.logger.log(`[AUDIT] Socket connected: userId=${payload.sub} socketId=${client.id}`);
     } catch {
       client.disconnect(true);
     }
@@ -60,8 +64,32 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   handleDisconnect(client: Socket) {
     const userId = client.data?.userId as number | undefined;
     if (userId) {
-      this.logger.debug(`Socket disconnected for user ${userId}`);
+      this.logger.debug(`[AUDIT] Socket disconnected: userId=${userId}`);
     }
+  }
+
+  @SubscribeMessage('typing:start')
+  handleTypingStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { recipientId: number },
+  ) {
+    const senderId = client.data?.userId as number | undefined;
+    if (!senderId || !payload?.recipientId) return;
+    this.server
+      .to(this.userRoom(payload.recipientId))
+      .emit('typing:start', { userId: senderId });
+  }
+
+  @SubscribeMessage('typing:stop')
+  handleTypingStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { recipientId: number },
+  ) {
+    const senderId = client.data?.userId as number | undefined;
+    if (!senderId || !payload?.recipientId) return;
+    this.server
+      .to(this.userRoom(payload.recipientId))
+      .emit('typing:stop', { userId: senderId });
   }
 
   emitMessageToUsers(userIds: number[], message: unknown) {
@@ -74,3 +102,4 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     return `user:${userId}`;
   }
 }
+

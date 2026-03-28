@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsString, MinLength } from 'class-validator';
+import { IsInt, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateMessageDto {
   @Type(() => Number)
@@ -8,5 +8,6 @@ export class CreateMessageDto {
 
   @IsString()
   @MinLength(1)
+  @MaxLength(2000)
   content: string;
 }

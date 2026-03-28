@@ -8,8 +8,8 @@ export class CreateGradeDto {
 
   @Type(() => Number)
   @IsInt()
-  @Min(0)
-  @Max(100)
+  @Min(1)
+  @Max(10)
   score: number;
 
   @IsOptional()

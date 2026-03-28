@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Role } from '../common/enums/role.enum';
@@ -11,6 +12,8 @@ import { MessagesGateway } from './messages.gateway';
 
 @Injectable()
 export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly messagesGateway: MessagesGateway,
@@ -26,12 +29,12 @@ export class MessagesService {
       throw new NotFoundException('User not found');
     }
 
-    const senderTeacherRecipientStudent =
-      sender.role === Role.TEACHER && recipient.role === Role.STUDENT;
-    const senderStudentRecipientTeacher =
-      sender.role === Role.STUDENT && recipient.role === Role.TEACHER;
+    const senderTeacherRecipientStudent = sender.role === Role.TEACHER && recipient.role === Role.STUDENT;
+    const senderStudentRecipientTeacher = sender.role === Role.STUDENT && recipient.role === Role.TEACHER;
+    const senderTeacherRecipientFamily = sender.role === Role.TEACHER && recipient.role === Role.FAMILY;
+    const senderFamilyRecipientTeacher = sender.role === Role.FAMILY && recipient.role === Role.TEACHER;
 
-    if (!senderTeacherRecipientStudent && !senderStudentRecipientTeacher) {
+    if (!senderTeacherRecipientStudent && !senderStudentRecipientTeacher && !senderTeacherRecipientFamily && !senderFamilyRecipientTeacher) {
       return false;
     }
 
@@ -40,6 +43,38 @@ export class MessagesService {
         where: {
           studentId: recipientId,
           course: { teacherId: senderId },
+        },
+      });
+      return Boolean(linked);
+    }
+
+    if (senderTeacherRecipientFamily) {
+      const linked = await this.prisma.familyStudentLink.findFirst({
+        where: {
+          familyUserId: recipientId,
+          student: {
+            enrollments: {
+              some: {
+                course: { teacherId: senderId },
+              },
+            },
+          },
+        },
+      });
+      return Boolean(linked);
+    }
+
+    if (senderFamilyRecipientTeacher) {
+      const linked = await this.prisma.familyStudentLink.findFirst({
+        where: {
+          familyUserId: senderId,
+          student: {
+            enrollments: {
+              some: {
+                course: { teacherId: recipientId },
+              },
+            },
+          },
         },
       });
       return Boolean(linked);
@@ -55,18 +90,45 @@ export class MessagesService {
   }
 
   async contacts(user: { sub: number; role: Role }) {
-    const unreadMessages = await (this.prisma as any).message.findMany({
-      where: {
-        recipientId: user.sub,
-        readAt: null,
-      },
-      select: { senderId: true },
-    });
+    const [unreadMessages, allLastMessages] = await Promise.all([
+      (this.prisma as any).message.findMany({
+        where: { recipientId: user.sub, readAt: null },
+        select: { senderId: true },
+      }),
+      (this.prisma as any).message.findMany({
+        where: { OR: [{ senderId: user.sub }, { recipientId: user.sub }] },
+        orderBy: { createdAt: 'desc' },
+        select: { senderId: true, recipientId: true, createdAt: true },
+      }),
+    ]);
 
     const unreadBySender = new Map<number, number>();
     unreadMessages.forEach((m: { senderId: number }) => {
       unreadBySender.set(m.senderId, (unreadBySender.get(m.senderId) ?? 0) + 1);
     });
+
+    const lastMessageByPeer = new Map<number, Date>();
+    for (const msg of allLastMessages as Array<{
+      senderId: number;
+      recipientId: number;
+      createdAt: Date;
+    }>) {
+      const peerId = msg.senderId === user.sub ? msg.recipientId : msg.senderId;
+      if (!lastMessageByPeer.has(peerId)) {
+        lastMessageByPeer.set(peerId, msg.createdAt);
+      }
+    }
+
+    type ContactBase = { id: number; fullName: string; unreadCount: number; lastMessageAt: string | null };
+    const sortByLastMessage = (contacts: ContactBase[]) =>
+      contacts.sort((a, b) => {
+        if (a.lastMessageAt && b.lastMessageAt) {
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        }
+        if (a.lastMessageAt) return -1;
+        if (b.lastMessageAt) return 1;
+        return a.fullName.localeCompare(b.fullName);
+      });
 
     if (user.role === Role.TEACHER) {
       const enrollments = await this.prisma.enrollment.findMany({
@@ -81,12 +143,67 @@ export class MessagesService {
       const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
       enrollments.forEach((e) => byId.set(e.student.id, e.student as any));
 
-      return Array.from(byId.values())
-        .map((contact) => ({
+      const familyLinks = await this.prisma.familyStudentLink.findMany({
+        where: {
+          student: {
+            enrollments: {
+              some: { course: { teacherId: user.sub } },
+            },
+          },
+        },
+        select: {
+          familyUser: {
+            select: { id: true, fullName: true, email: true, role: true },
+          },
+        },
+      });
+      familyLinks.forEach((link) => byId.set(link.familyUser.id, link.familyUser as any));
+
+      return sortByLastMessage(
+        Array.from(byId.values()).map((contact) => ({
           ...contact,
           unreadCount: unreadBySender.get(contact.id) ?? 0,
-        }))
-        .sort((a, b) => a.fullName.localeCompare(b.fullName));
+          lastMessageAt: lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
+        })),
+      );
+    }
+
+    if (user.role === Role.FAMILY) {
+      const links = await this.prisma.familyStudentLink.findMany({
+        where: { familyUserId: user.sub },
+        select: {
+          student: {
+            select: {
+              enrollments: {
+                select: {
+                  course: {
+                    select: {
+                      teacher: {
+                        select: { id: true, fullName: true, email: true, role: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
+      links.forEach((link) => {
+        link.student.enrollments.forEach((enrollment) => {
+          byId.set(enrollment.course.teacher.id, enrollment.course.teacher as any);
+        });
+      });
+
+      return sortByLastMessage(
+        Array.from(byId.values()).map((contact) => ({
+          ...contact,
+          unreadCount: unreadBySender.get(contact.id) ?? 0,
+          lastMessageAt: lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
+        })),
+      );
     }
 
     const enrollments = await this.prisma.enrollment.findMany({
@@ -105,12 +222,13 @@ export class MessagesService {
     const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
     enrollments.forEach((e) => byId.set(e.course.teacher.id, e.course.teacher as any));
 
-    return Array.from(byId.values())
-      .map((contact) => ({
+    return sortByLastMessage(
+      Array.from(byId.values()).map((contact) => ({
         ...contact,
         unreadCount: unreadBySender.get(contact.id) ?? 0,
-      }))
-      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+        lastMessageAt: lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
+      })),
+    );
   }
 
   async thread(otherUserId: number, user: { sub: number; role: Role }) {
@@ -153,6 +271,9 @@ export class MessagesService {
       data: { readAt: new Date() },
     });
 
+    this.logger.log(
+      `[AUDIT] User ${user.sub} marked ${result.count} messages from ${otherUserId} as read`,
+    );
     return { updated: result.count };
   }
 
@@ -178,6 +299,9 @@ export class MessagesService {
       },
     });
 
+    this.logger.log(
+      `[AUDIT] Message created: id=${created.id} from=${user.sub} to=${dto.recipientId} length=${dto.content.trim().length}`,
+    );
     this.messagesGateway.emitMessageToUsers([user.sub, dto.recipientId], created);
 
     return created;

@@ -83,6 +83,15 @@ export class CoursesService {
       throw new ForbiddenException();
     }
 
+    if (requester.role === Role.STUDENT) {
+      const enrolled = course.enrollments.some(
+        (enrollment) => enrollment.student.id === requester.sub,
+      );
+      if (!enrolled) {
+        throw new ForbiddenException('Student is not enrolled in this course');
+      }
+    }
+
     return course;
   }
 

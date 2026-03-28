@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -16,7 +17,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { MessagesService } from './messages.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.TEACHER, Role.STUDENT)
+@Roles(Role.TEACHER, Role.STUDENT, Role.FAMILY)
 @Controller('messages')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
@@ -43,6 +44,8 @@ export class MessagesController {
   }
 
   @Post()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   create(
     @Body() dto: CreateMessageDto,
     @CurrentUser() user: { sub: number; role: Role },

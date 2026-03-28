@@ -27,7 +27,7 @@ export class GradesController {
     return this.gradesService.myGrades(user.sub);
   }
 
-  @Roles(Role.ADMIN, Role.TEACHER)
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
   @Get('course/:courseId')
   byCourse(
     @Param('courseId', ParseIntPipe) courseId: number,

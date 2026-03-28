@@ -14,7 +14,7 @@ type SessionData = {
     id: number;
     email: string;
     fullName: string;
-    role: "ADMIN" | "TEACHER" | "STUDENT";
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "FAMILY";
     createdAt: string;
   };
 };
