@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtPayload } from './types/jwt-payload.interface';
+
+type JwtExpiry = `${number}${'m' | 'h' | 'd'}`;
 
 @Injectable()
 export class AuthService {
@@ -39,8 +38,7 @@ export class AuthService {
   }
 
   async refresh(refreshDto: RefreshTokenDto) {
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ?? 'refresh_secret';
+    const refreshSecret = this.getRequiredConfig('JWT_REFRESH_SECRET');
 
     let payload: JwtPayload;
     try {
@@ -84,6 +82,51 @@ export class AuthService {
     return this.issueSession(payload.sub, payload.email, payload.role);
   }
 
+  async logout(refreshDto: RefreshTokenDto) {
+    const refreshSecret = this.getRequiredConfig('JWT_REFRESH_SECRET');
+
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<JwtPayload>(
+        refreshDto.refreshToken,
+        {
+          secret: refreshSecret,
+        },
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const activeTokens = await this.prisma.refreshToken.findMany({
+      where: {
+        userId: payload.sub,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { id: 'desc' },
+    });
+
+    let matchedTokenId: number | null = null;
+    for (const token of activeTokens) {
+      const ok = await bcrypt.compare(refreshDto.refreshToken, token.tokenHash);
+      if (ok) {
+        matchedTokenId = token.id;
+        break;
+      }
+    }
+
+    if (!matchedTokenId) {
+      throw new UnauthorizedException('Refresh token not recognized');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: matchedTokenId },
+      data: { revokedAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
   async me(userId: number) {
     return this.prisma.user.findUnique({
       where: { id: userId },
@@ -104,28 +147,30 @@ export class AuthService {
       role: role as JwtPayload['role'],
     };
 
-    const accessSecret =
-      this.configService.get<string>('JWT_ACCESS_SECRET') ?? 'access_secret';
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ?? 'refresh_secret';
+    const accessSecret = this.getRequiredConfig('JWT_ACCESS_SECRET');
+    const refreshSecret = this.getRequiredConfig('JWT_REFRESH_SECRET');
 
     const accessExpiresIn =
       this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m';
     const refreshExpiresIn =
       this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    const accessExpires = accessExpiresIn as JwtExpiry;
+    const refreshExpires = refreshExpiresIn as JwtExpiry;
 
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: accessSecret,
-      expiresIn: accessExpiresIn as any,
+      expiresIn: accessExpires,
     });
 
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
-      expiresIn: refreshExpiresIn as any,
+      expiresIn: refreshExpires,
     });
 
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-    const expiresAt = new Date(Date.now() + this.parseDurationMs(refreshExpiresIn));
+    const expiresAt = new Date(
+      Date.now() + this.parseDurationMs(refreshExpiresIn),
+    );
 
     await this.prisma.refreshToken.create({
       data: {
@@ -156,5 +201,13 @@ export class AuthService {
     if (unit === 'm') return amount * 60 * 1000;
     if (unit === 'h') return amount * 60 * 60 * 1000;
     return amount * 24 * 60 * 60 * 1000;
+  }
+
+  private getRequiredConfig(key: string): string {
+    const value = this.configService.get<string>(key);
+    if (!value) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
   }
 }

@@ -20,7 +20,11 @@ describe('Assignments + Attachments (e2e)', () => {
   const assignmentId = 100;
 
   const mockCourse = {
-    id: courseId, code: 'CS101', title: 'Computer Science', teacherId, description: null,
+    id: courseId,
+    code: 'CS101',
+    title: 'Computer Science',
+    teacherId,
+    description: null,
   };
 
   const mockAssignment = {
@@ -39,8 +43,10 @@ describe('Assignments + Attachments (e2e)', () => {
     prismaService = {
       user: {
         findUnique: jest.fn().mockImplementation(({ where }) => {
-          if (where.id === teacherId) return Promise.resolve({ id: teacherId, role: Role.TEACHER });
-          if (where.id === studentId) return Promise.resolve({ id: studentId, role: Role.STUDENT });
+          if (where.id === teacherId)
+            return Promise.resolve({ id: teacherId, role: Role.TEACHER });
+          if (where.id === studentId)
+            return Promise.resolve({ id: studentId, role: Role.STUDENT });
           return Promise.resolve(null);
         }),
       } as any,
@@ -62,7 +68,12 @@ describe('Assignments + Attachments (e2e)', () => {
       submission: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({
-          id: 1, assignmentId, studentId, content: 'My submission', status: 'SUBMITTED', submittedAt: new Date(),
+          id: 1,
+          assignmentId,
+          studentId,
+          content: 'My submission',
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
         }),
         update: jest.fn().mockResolvedValue({}),
       } as any,
@@ -80,7 +91,11 @@ describe('Assignments + Attachments (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }),
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     await app.init();
   });

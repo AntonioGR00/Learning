@@ -1,98 +1,161 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# API - Plataforma Escolar
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend NestJS de la plataforma escolar.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+- NestJS 11
+- Prisma + PostgreSQL
+- JWT (access + refresh)
+- Socket.IO
+- Validacion global con class-validator
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Requisitos
 
-## Project setup
+- Node.js 20+
+- npm 10+
+- PostgreSQL 16 (local con Docker o servicio gestionado)
 
-```bash
-$ npm install
+## Variables de entorno
+
+Copia `apps/api/.env.example` a `apps/api/.env` y ajusta valores:
+
+```env
+PORT=4000
+NODE_ENV=development
+JWT_ACCESS_SECRET=<obligatoria>
+JWT_REFRESH_SECRET=<obligatoria>
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+CORS_ORIGIN=http://localhost:3000
+TRUST_PROXY=false
+BODY_LIMIT=1mb
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/school_db?schema=public
 ```
 
-## Compile and run the project
+Notas:
+
+- `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` son obligatorias.
+- `CORS_ORIGIN` acepta lista separada por comas para multiples dominios.
+- `TRUST_PROXY=true` cuando corra detras de Nginx/Load Balancer.
+- `BODY_LIMIT` controla el limite de payload JSON/urlencoded.
+
+## Arranque en desarrollo
+
+Desde la raiz del monorepo:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run db:up
+npm --prefix apps/api run prisma:generate
+npm --prefix apps/api run prisma:migrate -- --name init
+npm --prefix apps/api run db:seed
+npm --prefix apps/api run start:dev
 ```
 
-## Run tests
+API base: `http://localhost:4000/api`
+
+## Scripts utiles
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm --prefix apps/api run start:dev
+npm --prefix apps/api run build
+npm --prefix apps/api run start:prod
+npm --prefix apps/api run test
+npm --prefix apps/api run test:e2e
+npm --prefix apps/api run prisma:generate
+npm --prefix apps/api run prisma:migrate -- --name <nombre>
+npm --prefix apps/api run prisma:deploy
 ```
 
-## Deployment
+## Endpoints clave
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Autenticacion:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+Salud:
+
+- `GET /api/health`
+- `GET /api/metrics`
+
+Otros modulos:
+
+- Usuarios, cursos, tareas, asistencia, calificaciones, anuncios, mensajes, notificaciones y familias.
+
+## WebSocket
+
+Conexion: `ws://localhost:4000` con `auth: { token: <accessToken> }`
+
+Eventos implementados:
+
+- Cliente -> servidor: `typing:start`, `typing:stop`
+- Servidor -> cliente: `messages:new`, `typing:start`, `typing:stop`
+
+## Pruebas
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm --prefix apps/api run test -- --runInBand
+npm --prefix apps/api run test:e2e -- --runInBand
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Estado actual esperado:
 
-## Resources
+- Unit tests: OK
+- E2E tests: OK
+- Lint: OK con baseline de warnings para deuda historica
 
-Check out a few resources that may come in handy when working with NestJS:
+## Produccion
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+1. Configura variables seguras en entorno.
+2. Compila:
 
-## Support
+```bash
+npm --prefix apps/api run build
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+3. Aplica migraciones:
 
-## Stay in touch
+```bash
+npm --prefix apps/api run prisma:deploy
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+4. Arranca servicio:
 
-## License
+```bash
+npm --prefix apps/api run start:prod
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Observabilidad
+
+- `GET /api/health` incluye `status`, `service`, `version`, `environment`, `uptimeSeconds` y `timestamp`.
+- `GET /api/metrics` expone métricas Prometheus para integración con Grafana/Prometheus.
+- Cada request queda registrada con log JSON, duracion, status y `x-request-id`.
+
+## Docker
+
+Desde la raiz del monorepo:
+
+```bash
+npm run docker:prod:build
+npm run docker:prod:up
+docker compose -f docker-compose.prod.yml exec api npm --prefix apps/api run prisma:deploy
+```
+
+Para apagar el stack:
+
+```bash
+npm run docker:prod:down
+```
+
+Checklist minima:
+
+- JWT secrets fuertes y rotables
+- CORS restringido a dominios reales
+- Helmet habilitado para cabeceras de seguridad
+- `TRUST_PROXY` correctamente configurado segun infraestructura
+- HTTPS en proxy inverso
+- Backups de base de datos

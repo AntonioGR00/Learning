@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AppService } from './app.service';
 
 @Controller()
@@ -8,5 +9,11 @@ export class AppController {
   @Get('health')
   health() {
     return this.appService.health();
+  }
+
+  @Get('metrics')
+  async metrics(@Res() response: Response) {
+    response.setHeader('Content-Type', this.appService.metricsContentType());
+    response.send(await this.appService.metrics());
   }
 }

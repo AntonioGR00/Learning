@@ -19,7 +19,12 @@ describe('Attendance REST (e2e)', () => {
   const studentId = 2;
   const courseId = 10;
 
-  const mockTeacher = { id: teacherId, email: 'teacher@test.com', fullName: 'Test Teacher', role: Role.TEACHER };
+  const mockTeacher = {
+    id: teacherId,
+    email: 'teacher@test.com',
+    fullName: 'Test Teacher',
+    role: Role.TEACHER,
+  };
 
   const mockAttendance = {
     id: 1,
@@ -72,7 +77,11 @@ describe('Attendance REST (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }),
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     await app.init();
   });

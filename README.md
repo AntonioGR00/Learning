@@ -1,5 +1,7 @@
 # Plataforma Escolar - Monorepo
 
+Plataforma escolar full-stack lista para demo técnica y portfolio, con backend seguro, CI/CD y despliegue reproducible con Docker.
+
 Plataforma escolar full-stack con:
 
 - **Frontend**: Next.js 15 (`apps/web`)
@@ -72,6 +74,12 @@ npm run dev
 |----------|---------------------|
 | Email    | `admin@school.local` |
 | Password | `Admin123!`         |
+
+Importante:
+
+- Estas credenciales son solo para entorno local/demo.
+- No deben usarse en staging ni producción.
+- Cambia siempre usuarios y contraseñas al desplegar.
 
 ---
 
@@ -173,9 +181,48 @@ Conectar a `ws://localhost:4000` con `auth: { token: <accessToken> }`.
 | `npm run dev:web`        | Solo Next.js                           |
 | `npm run dev:api`        | Solo NestJS (watch mode)               |
 | `npm run build`          | Build completo para producción         |
+| `npm run lint`           | Lint de frontend + backend             |
 | `npm run db:up`          | Levantar PostgreSQL vía Docker         |
 | `npm run db:down`        | Detener contenedores                   |
 | `npm run db:logs`        | Ver logs de PostgreSQL                 |
+| `npm run docker:prod:build` | Build de imágenes de producción     |
+| `npm run docker:prod:up` | Levantar stack productivo local        |
+| `npm run docker:prod:down` | Detener stack productivo local       |
+
+---
+
+## CI/CD
+
+Se incluye pipeline en GitHub Actions:
+
+- Archivo: `.github/workflows/ci.yml`
+- Triggers: `push` (main/master/develop) y `pull_request`
+- Etapas bloqueantes: lint de API/Web, tests unitarios API, tests e2e API y build completo
+- Smoke test Docker bloqueante: build, up, migraciones, health, metrics y web
+
+Documentos de apoyo:
+
+- `docs/release-checklist.md`
+- `docs/user-guide.md`
+- `.github/pull_request_template.md`
+
+---
+
+## Publicacion En GitHub
+
+Checklist minimo antes de hacer el repo publico:
+
+1. Verificar que no haya secretos reales en el historial ni en cambios pendientes.
+2. Mantener solo archivos de ejemplo (`.env.example`), nunca `.env` reales.
+3. Activar Secret Scanning y Dependabot en GitHub.
+4. Revisar credenciales demo y dejar claro que son exclusivas de entorno local.
+
+Portfolio snapshot:
+
+- Arquitectura full-stack: Next.js + NestJS + Prisma + PostgreSQL.
+- Seguridad base aplicada: JWT obligatorio, CORS restringible, Helmet y request logging.
+- Calidad de entrega: lint, tests, build y smoke Docker en CI.
+- Operación: health/metrics para observabilidad y documentación de despliegue.
 
 ---
 
@@ -197,6 +244,53 @@ Los tests e2e cubren:
 ---
 
 ## Guía de despliegue en producción
+
+### Observabilidad
+
+- `GET /api/health`: devuelve estado, servicio, version, entorno, uptime y timestamp.
+- `GET /api/metrics`: expone métricas Prometheus (`prom-client`) para scraping.
+- La API genera logs JSON por request e incluye/propaga `x-request-id`.
+
+### Despliegue reproducible con Docker
+
+1. Crea un archivo `.env` en la raiz con al menos:
+
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=school_db
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/school_db?schema=public
+JWT_ACCESS_SECRET=<secreto-seguro>
+JWT_REFRESH_SECRET=<secreto-seguro>
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+CORS_ORIGIN=http://localhost:3000
+TRUST_PROXY=true
+BODY_LIMIT=1mb
+```
+
+2. Construye las imágenes:
+
+```bash
+npm run docker:prod:build
+```
+
+3. Levanta el stack:
+
+```bash
+npm run docker:prod:up
+```
+
+4. Aplica migraciones dentro del contenedor de API:
+
+```bash
+docker compose -f docker-compose.prod.yml exec api npm --prefix apps/api run prisma:deploy
+```
+
+5. Deten el stack cuando termines:
+
+```bash
+npm run docker:prod:down
+```
 
 ### Requisitos de infraestructura
 - PostgreSQL 16 gestionado (Supabase, Railway, RDS, Neon…)
@@ -236,6 +330,6 @@ Los tests e2e cubren:
 ### Seguridad en producción
 - Rota los secretos JWT periódicamente.
 - Activa HTTPS en el proxy inverso.
-- Restringe `CORS` a los dominios autorizados cambiando `app.enableCors({ origin: ['https://tu-dominio.com'] })` en `main.ts`.
+- Restringe `CORS_ORIGIN` a los dominios autorizados.
 - Configura un almacenamiento externo (S3, Cloudinary…) para los adjuntos en lugar del disco local.
 

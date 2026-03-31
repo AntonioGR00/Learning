@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '../common/enums/role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -48,7 +52,10 @@ export class GradesService {
     });
 
     await this.notificationsService.createMany({
-      recipientIds: [submission.studentId, ...familyLinks.map((link) => link.familyUserId)],
+      recipientIds: [
+        submission.studentId,
+        ...familyLinks.map((link) => link.familyUserId),
+      ],
       type: 'GRADE_PUBLISHED',
       title: `Nueva calificación en ${submission.assignment.title}`,
       body: `Tu tarea ha sido calificada con un ${dto.score}.`,
@@ -74,7 +81,9 @@ export class GradesService {
 
   async byCourse(courseId: number, user: { sub: number; role: Role }) {
     if (user.role === Role.TEACHER) {
-      const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+      const course = await this.prisma.course.findUnique({
+        where: { id: courseId },
+      });
       if (!course || course.teacherId !== user.sub) {
         throw new ForbiddenException();
       }

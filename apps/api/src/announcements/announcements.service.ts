@@ -14,9 +14,13 @@ export class AnnouncementsService {
 
   async create(dto: CreateAnnouncementDto, user: { sub: number; role: Role }) {
     if (user.role === Role.TEACHER && dto.courseId) {
-      const course = await this.prisma.course.findUnique({ where: { id: dto.courseId } });
+      const course = await this.prisma.course.findUnique({
+        where: { id: dto.courseId },
+      });
       if (!course || course.teacherId !== user.sub) {
-        throw new ForbiddenException('Only assigned teacher can post on this course');
+        throw new ForbiddenException(
+          'Only assigned teacher can post on this course',
+        );
       }
     }
 
@@ -36,20 +40,29 @@ export class AnnouncementsService {
       type: 'ANNOUNCEMENT_CREATED',
       title: `Nuevo anuncio: ${dto.title}`,
       body: dto.body,
-      link: dto.courseId ? `/dashboard/curso/${dto.courseId}?tab=calendar` : '/dashboard',
+      link: dto.courseId
+        ? `/dashboard/curso/${dto.courseId}?tab=calendar`
+        : '/dashboard',
     });
 
     return announcement;
   }
 
-  private async resolveRecipients(dto: CreateAnnouncementDto, authorId: number) {
+  private async resolveRecipients(
+    dto: CreateAnnouncementDto,
+    authorId: number,
+  ) {
     if (dto.courseId) {
       const enrollments = await this.prisma.enrollment.findMany({
         where: { courseId: dto.courseId },
         select: { studentId: true },
       });
       const familyLinks = await this.prisma.familyStudentLink.findMany({
-        where: { studentId: { in: enrollments.map((enrollment) => enrollment.studentId) } },
+        where: {
+          studentId: {
+            in: enrollments.map((enrollment) => enrollment.studentId),
+          },
+        },
         select: { familyUserId: true },
       });
       const course = await this.prisma.course.findUnique({
@@ -70,8 +83,8 @@ export class AnnouncementsService {
       dto.audience === AnnouncementAudience.TEACHERS
         ? { role: Role.TEACHER }
         : dto.audience === AnnouncementAudience.STUDENTS
-        ? { role: Role.STUDENT }
-        : {};
+          ? { role: Role.STUDENT }
+          : {};
 
     const users = await this.prisma.user.findMany({
       where,
@@ -83,7 +96,9 @@ export class AnnouncementsService {
 
   list(user: { sub: number; role: Role }) {
     if (user.role === Role.ADMIN) {
-      return this.prisma.announcement.findMany({ orderBy: { createdAt: 'desc' } });
+      return this.prisma.announcement.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
     }
 
     if (user.role === Role.TEACHER) {

@@ -13,9 +13,15 @@
     "build:web": "npm --prefix apps/web run build",
     "build:api": "npm --prefix apps/api run build",
     "build": "npm run build:web && npm run build:api",
+    "lint:web": "npm --prefix apps/web run lint",
+    "lint:api": "npm --prefix apps/api run lint",
+    "lint": "npm run lint:web && npm run lint:api",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "docker:prod:build": "docker compose -f docker-compose.prod.yml build",
+    "docker:prod:up": "docker compose -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -15,7 +19,9 @@ export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createMany(input: CreateNotificationInput) {
-    const recipientIds = [...new Set(input.recipientIds)].filter((id) => Number.isInteger(id));
+    const recipientIds = [...new Set(input.recipientIds)].filter((id) =>
+      Number.isInteger(id),
+    );
     if (recipientIds.length === 0) {
       return { count: 0 };
     }
@@ -40,12 +46,16 @@ export class NotificationsService {
   }
 
   async markRead(notificationId: number, userId: number) {
-    const notification = await this.prisma.notification.findUnique({ where: { id: notificationId } });
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
     if (!notification) {
       throw new NotFoundException('Notification not found');
     }
     if (notification.recipientId !== userId) {
-      throw new ForbiddenException('Notification does not belong to current user');
+      throw new ForbiddenException(
+        'Notification does not belong to current user',
+      );
     }
 
     return this.prisma.notification.update({

@@ -1,6 +1,12 @@
 import { AnnouncementAudience } from '../../common/enums/announcement-audience.enum';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class CreateAnnouncementDto {
   @IsString()

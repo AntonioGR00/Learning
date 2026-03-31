@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JWT_ACCESS_SECRET: ci_access_secret_32_chars_minimum_value
+      JWT_REFRESH_SECRET: ci_refresh_secret_32_chars_minimum_value
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_db?schema=public
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint API
+        run: npm --prefix apps/api run lint
+
+      - name: Lint Web
+        run: npm --prefix apps/web run lint
+
+  quality-and-build:
+    name: Test, E2E, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JWT_ACCESS_SECRET: ci_access_secret_32_chars_minimum_value
+      JWT_REFRESH_SECRET: ci_refresh_secret_32_chars_minimum_value
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_db?schema=public
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests API
+        run: npm --prefix apps/api run test -- --runInBand
+
+      - name: E2E tests API
+        run: npm --prefix apps/api run test:e2e -- --runInBand
+
+      - name: Build monorepo
+        run: npm run build
+
+  docker-smoke:
+    name: Docker Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: school_db
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/school_db?schema=public
+      JWT_ACCESS_SECRET: ci_access_secret_32_chars_minimum_value
+      JWT_REFRESH_SECRET: ci_refresh_secret_32_chars_minimum_value
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      TRUST_PROXY: true
+      BODY_LIMIT: 1mb
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build production images
+        run: docker compose -f docker-compose.prod.yml build
+
+      - name: Start production stack
+        run: docker compose -f docker-compose.prod.yml up -d
+
+      - name: Run Prisma migrations in API container
+        run: docker compose -f docker-compose.prod.yml exec -T api npm --prefix apps/api run prisma:deploy
+
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:4000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API health check failed"
+          docker compose -f docker-compose.prod.yml logs api --tail 200
+          exit 1
+
+      - name: Verify metrics and web
+        run: |
+          curl -fsS http://localhost:4000/api/metrics > /dev/null
+          curl -fsS http://localhost:3000 > /dev/null
+
+      - name: Stop production stack
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down

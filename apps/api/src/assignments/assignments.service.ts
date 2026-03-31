@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import mammoth from 'mammoth';
 import { extname } from 'path';
 import { AssignmentDeliveryMode } from '@prisma/client';
@@ -6,7 +11,10 @@ import { Role } from '../common/enums/role.enum';
 import { SubmissionStatus } from '../common/enums/submission-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssignmentDeliveryModeDto, CreateAssignmentDto } from './dto/create-assignment.dto';
+import {
+  AssignmentDeliveryModeDto,
+  CreateAssignmentDto,
+} from './dto/create-assignment.dto';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 
 @Injectable()
@@ -24,7 +32,9 @@ export class AssignmentsService {
       .filter((q) => q.length > 0);
   }
 
-  private serializeAssignment<T extends { questions?: unknown }>(assignment: T): T & { questions: string[] } {
+  private serializeAssignment<T extends { questions?: unknown }>(
+    assignment: T,
+  ): T & { questions: string[] } {
     return {
       ...assignment,
       questions: this.normalizeQuestions(assignment.questions),
@@ -40,11 +50,18 @@ export class AssignmentsService {
 
     const startsQuestion = (line: string) => {
       const normalized = line.toLowerCase();
-      if (/^(pregunta\s*\d+[:.)-]?|question\s*\d+[:.)-]?)/i.test(line)) return true;
+      if (/^(pregunta\s*\d+[:.)-]?|question\s*\d+[:.)-]?)/i.test(line))
+        return true;
       if (/^\d+\s*[).:-]\s+/.test(line)) return true;
       if (/^[ivxlcdm]+\s*[).:-]\s+/i.test(line)) return true;
       if (/\?$/.test(line) && line.length >= 10) return true;
-      if (/^\d+\s+/.test(line) && (normalized.includes('que ') || normalized.includes('cuál') || normalized.includes('como '))) return true;
+      if (
+        /^\d+\s+/.test(line) &&
+        (normalized.includes('que ') ||
+          normalized.includes('cuál') ||
+          normalized.includes('como '))
+      )
+        return true;
       return false;
     };
 
@@ -69,7 +86,9 @@ export class AssignmentsService {
 
     if (current) questions.push(current.trim());
 
-    const fallback = lines.filter((line) => /\?$/.test(line) && line.length >= 10);
+    const fallback = lines.filter(
+      (line) => /\?$/.test(line) && line.length >= 10,
+    );
     const unique = (questions.length > 0 ? questions : fallback)
       .map((q) => q.replace(/\s+/g, ' ').trim())
       .filter((q, idx, arr) => q.length >= 8 && arr.indexOf(q) === idx)
@@ -78,12 +97,16 @@ export class AssignmentsService {
     return unique;
   }
 
-  private async extractQuestionsFromDocx(uploadedFilePath?: string): Promise<string[] | null> {
+  private async extractQuestionsFromDocx(
+    uploadedFilePath?: string,
+  ): Promise<string[] | null> {
     if (!uploadedFilePath) return null;
     if (extname(uploadedFilePath).toLowerCase() !== '.docx') return null;
 
     try {
-      const { value } = await mammoth.extractRawText({ path: uploadedFilePath });
+      const { value } = await mammoth.extractRawText({
+        path: uploadedFilePath,
+      });
       const questions = this.extractQuestionsFromText(value || '');
       return questions.length > 0 ? questions : null;
     } catch {
@@ -98,24 +121,35 @@ export class AssignmentsService {
     uploadedFilePath?: string,
   ) {
     if (user.role === Role.TEACHER) {
-      const course = await this.prisma.course.findUnique({ where: { id: dto.courseId } });
+      const course = await this.prisma.course.findUnique({
+        where: { id: dto.courseId },
+      });
       if (!course || course.teacherId !== user.sub) {
-        throw new ForbiddenException('Only assigned teacher can create assignments');
+        throw new ForbiddenException(
+          'Only assigned teacher can create assignments',
+        );
       }
     }
 
     const deliveryMode = dto.deliveryMode ?? AssignmentDeliveryModeDto.PLATFORM;
-    const questions = deliveryMode === AssignmentDeliveryModeDto.PLATFORM
-      ? await this.extractQuestionsFromDocx(uploadedFilePath)
-      : null;
-    const secureMode = deliveryMode === AssignmentDeliveryModeDto.PLATFORM && (dto.secureMode ?? false);
+    const questions =
+      deliveryMode === AssignmentDeliveryModeDto.PLATFORM
+        ? await this.extractQuestionsFromDocx(uploadedFilePath)
+        : null;
+    const secureMode =
+      deliveryMode === AssignmentDeliveryModeDto.PLATFORM &&
+      (dto.secureMode ?? false);
 
     const enrollments = await this.prisma.enrollment.findMany({
       where: { courseId: dto.courseId },
       select: { studentId: true },
     });
     const familyLinks = await this.prisma.familyStudentLink.findMany({
-      where: { studentId: { in: enrollments.map((enrollment) => enrollment.studentId) } },
+      where: {
+        studentId: {
+          in: enrollments.map((enrollment) => enrollment.studentId),
+        },
+      },
       select: { familyUserId: true },
     });
 
@@ -127,7 +161,10 @@ export class AssignmentsService {
         description: dto.description,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         deliveryMode,
-        durationMinutes: deliveryMode === AssignmentDeliveryModeDto.PLATFORM ? dto.durationMinutes ?? null : null,
+        durationMinutes:
+          deliveryMode === AssignmentDeliveryModeDto.PLATFORM
+            ? (dto.durationMinutes ?? null)
+            : null,
         secureMode,
         attachmentUrl: attachmentUrl ?? null,
         questions: questions ?? undefined,
@@ -186,7 +223,9 @@ export class AssignmentsService {
     user: { sub: number },
     fileUrl?: string,
   ) {
-    const assignment = await this.prisma.assignment.findUnique({ where: { id: assignmentId } });
+    const assignment = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+    });
     if (!assignment) {
       throw new NotFoundException('Assignment not found');
     }
@@ -213,15 +252,26 @@ export class AssignmentsService {
     }
 
     const terminatedByFocusLoss = Boolean(dto.terminatedByFocusLoss);
-    const terminationReason = dto.terminationReason?.trim() || 'TAB_OR_FOCUS_CHANGE';
+    const terminationReason =
+      dto.terminationReason?.trim() || 'TAB_OR_FOCUS_CHANGE';
     const content = dto.content?.trim();
 
     if (!terminatedByFocusLoss) {
-      if (assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD && !fileUrl) {
-        throw new BadRequestException('Esta tarea requiere entrega por archivo');
+      if (
+        assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD &&
+        !fileUrl
+      ) {
+        throw new BadRequestException(
+          'Esta tarea requiere entrega por archivo',
+        );
       }
-      if (assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM && !content) {
-        throw new BadRequestException('Esta tarea requiere respuesta en la plataforma');
+      if (
+        assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM &&
+        !content
+      ) {
+        throw new BadRequestException(
+          'Esta tarea requiere respuesta en la plataforma',
+        );
       }
     }
 
@@ -235,8 +285,16 @@ export class AssignmentsService {
       create: {
         assignmentId,
         studentId: user.sub,
-        content: terminatedByFocusLoss ? null : assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM ? content : null,
-        fileUrl: terminatedByFocusLoss ? null : assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD ? fileUrl ?? null : null,
+        content: terminatedByFocusLoss
+          ? null
+          : assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM
+            ? content
+            : null,
+        fileUrl: terminatedByFocusLoss
+          ? null
+          : assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD
+            ? (fileUrl ?? null)
+            : null,
         status: terminatedByFocusLoss
           ? (SubmissionStatus.DISQUALIFIED as any)
           : (SubmissionStatus.SUBMITTED as any),
@@ -245,8 +303,16 @@ export class AssignmentsService {
         terminationReason: terminatedByFocusLoss ? terminationReason : null,
       },
       update: {
-        content: terminatedByFocusLoss ? null : assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM ? content : null,
-        fileUrl: terminatedByFocusLoss ? null : assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD ? fileUrl ?? null : null,
+        content: terminatedByFocusLoss
+          ? null
+          : assignment.deliveryMode === AssignmentDeliveryMode.PLATFORM
+            ? content
+            : null,
+        fileUrl: terminatedByFocusLoss
+          ? null
+          : assignment.deliveryMode === AssignmentDeliveryMode.FILE_UPLOAD
+            ? (fileUrl ?? null)
+            : null,
         status: terminatedByFocusLoss
           ? (SubmissionStatus.DISQUALIFIED as any)
           : (SubmissionStatus.SUBMITTED as any),

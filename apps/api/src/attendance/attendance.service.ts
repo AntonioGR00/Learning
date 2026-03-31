@@ -1,10 +1,18 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AttendanceJustificationStatus } from '@prisma/client';
 import { Role } from '../common/enums/role.enum';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { JustifyAttendanceDto } from './dto/justify-attendance.dto';
-import { ReviewAttendanceJustificationDto, ReviewAttendanceJustificationStatusDto } from './dto/review-attendance-justification.dto';
+import {
+  ReviewAttendanceJustificationDto,
+  ReviewAttendanceJustificationStatusDto,
+} from './dto/review-attendance-justification.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -12,9 +20,13 @@ export class AttendanceService {
 
   async mark(dto: CreateAttendanceDto, user: { sub: number; role: Role }) {
     if (user.role === Role.TEACHER) {
-      const course = await this.prisma.course.findUnique({ where: { id: dto.courseId } });
+      const course = await this.prisma.course.findUnique({
+        where: { id: dto.courseId },
+      });
       if (!course || course.teacherId !== user.sub) {
-        throw new ForbiddenException('Only assigned teacher can mark attendance');
+        throw new ForbiddenException(
+          'Only assigned teacher can mark attendance',
+        );
       }
     }
 
@@ -50,7 +62,9 @@ export class AttendanceService {
 
   async byCourse(courseId: number, user: { sub: number; role: Role }) {
     if (user.role === Role.TEACHER) {
-      const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+      const course = await this.prisma.course.findUnique({
+        where: { id: courseId },
+      });
       if (!course || course.teacherId !== user.sub) {
         throw new ForbiddenException();
       }
@@ -74,15 +88,21 @@ export class AttendanceService {
     studentId: number,
     fileUrl?: string,
   ) {
-    const attendance = await this.prisma.attendance.findUnique({ where: { id: attendanceId } });
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+    });
     if (!attendance) {
       throw new NotFoundException('Attendance record not found');
     }
     if (attendance.studentId !== studentId) {
-      throw new ForbiddenException('Attendance record does not belong to current student');
+      throw new ForbiddenException(
+        'Attendance record does not belong to current student',
+      );
     }
     if (attendance.status === 'PRESENT') {
-      throw new BadRequestException('No se puede justificar una asistencia marcada como presente');
+      throw new BadRequestException(
+        'No se puede justificar una asistencia marcada como presente',
+      );
     }
     if (!fileUrl) {
       throw new BadRequestException('Debes adjuntar un justificante');
@@ -113,7 +133,9 @@ export class AttendanceService {
       throw new NotFoundException('Attendance record not found');
     }
     if (attendance.course.teacherId !== user.sub) {
-      throw new ForbiddenException('Only assigned teacher can review justifications');
+      throw new ForbiddenException(
+        'Only assigned teacher can review justifications',
+      );
     }
 
     return this.prisma.attendance.update({

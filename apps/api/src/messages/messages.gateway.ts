@@ -12,6 +12,10 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
+type SocketData = {
+  userId?: number;
+};
+
 type JwtPayload = {
   sub: number;
   email: string;
@@ -21,7 +25,9 @@ type JwtPayload = {
 @WebSocketGateway({
   cors: true,
 })
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -31,6 +37,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
+
+  private getUserId(client: Socket): number | undefined {
+    const data = client.data as SocketData;
+    return typeof data.userId === 'number' ? data.userId : undefined;
+  }
+
+  private setUserId(client: Socket, userId: number): void {
+    const data = client.data as SocketData;
+    data.userId = userId;
+  }
 
   async handleConnection(client: Socket) {
     const tokenRaw =
@@ -49,20 +65,23 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
         secret:
-          this.configService.get<string>('JWT_ACCESS_SECRET') ?? 'access_secret',
+          this.configService.get<string>('JWT_ACCESS_SECRET') ??
+          'access_secret',
       });
 
       const room = this.userRoom(payload.sub);
       await client.join(room);
-      client.data.userId = payload.sub;
-      this.logger.log(`[AUDIT] Socket connected: userId=${payload.sub} socketId=${client.id}`);
+      this.setUserId(client, payload.sub);
+      this.logger.log(
+        `[AUDIT] Socket connected: userId=${payload.sub} socketId=${client.id}`,
+      );
     } catch {
       client.disconnect(true);
     }
   }
 
   handleDisconnect(client: Socket) {
-    const userId = client.data?.userId as number | undefined;
+    const userId = this.getUserId(client);
     if (userId) {
       this.logger.debug(`[AUDIT] Socket disconnected: userId=${userId}`);
     }
@@ -73,7 +92,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { recipientId: number },
   ) {
-    const senderId = client.data?.userId as number | undefined;
+    const senderId = this.getUserId(client);
     if (!senderId || !payload?.recipientId) return;
     this.server
       .to(this.userRoom(payload.recipientId))
@@ -85,7 +104,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { recipientId: number },
   ) {
-    const senderId = client.data?.userId as number | undefined;
+    const senderId = this.getUserId(client);
     if (!senderId || !payload?.recipientId) return;
     this.server
       .to(this.userRoom(payload.recipientId))
@@ -102,4 +121,3 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     return `user:${userId}`;
   }
 }
-

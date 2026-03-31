@@ -14,6 +14,20 @@ import { MessagesGateway } from './messages.gateway';
 export class MessagesService {
   private readonly logger = new Logger(MessagesService.name);
 
+  private toContactUser(user: {
+    id: number;
+    fullName: string;
+    email: string;
+    role: unknown;
+  }) {
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: String(user.role),
+    };
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly messagesGateway: MessagesGateway,
@@ -29,12 +43,21 @@ export class MessagesService {
       throw new NotFoundException('User not found');
     }
 
-    const senderTeacherRecipientStudent = sender.role === Role.TEACHER && recipient.role === Role.STUDENT;
-    const senderStudentRecipientTeacher = sender.role === Role.STUDENT && recipient.role === Role.TEACHER;
-    const senderTeacherRecipientFamily = sender.role === Role.TEACHER && recipient.role === Role.FAMILY;
-    const senderFamilyRecipientTeacher = sender.role === Role.FAMILY && recipient.role === Role.TEACHER;
+    const senderTeacherRecipientStudent =
+      sender.role === Role.TEACHER && recipient.role === Role.STUDENT;
+    const senderStudentRecipientTeacher =
+      sender.role === Role.STUDENT && recipient.role === Role.TEACHER;
+    const senderTeacherRecipientFamily =
+      sender.role === Role.TEACHER && recipient.role === Role.FAMILY;
+    const senderFamilyRecipientTeacher =
+      sender.role === Role.FAMILY && recipient.role === Role.TEACHER;
 
-    if (!senderTeacherRecipientStudent && !senderStudentRecipientTeacher && !senderTeacherRecipientFamily && !senderFamilyRecipientTeacher) {
+    if (
+      !senderTeacherRecipientStudent &&
+      !senderStudentRecipientTeacher &&
+      !senderTeacherRecipientFamily &&
+      !senderFamilyRecipientTeacher
+    ) {
       return false;
     }
 
@@ -119,11 +142,19 @@ export class MessagesService {
       }
     }
 
-    type ContactBase = { id: number; fullName: string; unreadCount: number; lastMessageAt: string | null };
+    type ContactBase = {
+      id: number;
+      fullName: string;
+      unreadCount: number;
+      lastMessageAt: string | null;
+    };
     const sortByLastMessage = (contacts: ContactBase[]) =>
       contacts.sort((a, b) => {
         if (a.lastMessageAt && b.lastMessageAt) {
-          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+          return (
+            new Date(b.lastMessageAt).getTime() -
+            new Date(a.lastMessageAt).getTime()
+          );
         }
         if (a.lastMessageAt) return -1;
         if (b.lastMessageAt) return 1;
@@ -140,8 +171,13 @@ export class MessagesService {
         },
       });
 
-      const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
-      enrollments.forEach((e) => byId.set(e.student.id, e.student as any));
+      const byId = new Map<
+        number,
+        { id: number; fullName: string; email: string; role: string }
+      >();
+      enrollments.forEach((e) =>
+        byId.set(e.student.id, this.toContactUser(e.student)),
+      );
 
       const familyLinks = await this.prisma.familyStudentLink.findMany({
         where: {
@@ -157,13 +193,16 @@ export class MessagesService {
           },
         },
       });
-      familyLinks.forEach((link) => byId.set(link.familyUser.id, link.familyUser as any));
+      familyLinks.forEach((link) =>
+        byId.set(link.familyUser.id, this.toContactUser(link.familyUser)),
+      );
 
       return sortByLastMessage(
         Array.from(byId.values()).map((contact) => ({
           ...contact,
           unreadCount: unreadBySender.get(contact.id) ?? 0,
-          lastMessageAt: lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
+          lastMessageAt:
+            lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
         })),
       );
     }
@@ -179,7 +218,12 @@ export class MessagesService {
                   course: {
                     select: {
                       teacher: {
-                        select: { id: true, fullName: true, email: true, role: true },
+                        select: {
+                          id: true,
+                          fullName: true,
+                          email: true,
+                          role: true,
+                        },
                       },
                     },
                   },
@@ -190,10 +234,16 @@ export class MessagesService {
         },
       });
 
-      const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
+      const byId = new Map<
+        number,
+        { id: number; fullName: string; email: string; role: string }
+      >();
       links.forEach((link) => {
         link.student.enrollments.forEach((enrollment) => {
-          byId.set(enrollment.course.teacher.id, enrollment.course.teacher as any);
+          byId.set(
+            enrollment.course.teacher.id,
+            this.toContactUser(enrollment.course.teacher),
+          );
         });
       });
 
@@ -201,7 +251,8 @@ export class MessagesService {
         Array.from(byId.values()).map((contact) => ({
           ...contact,
           unreadCount: unreadBySender.get(contact.id) ?? 0,
-          lastMessageAt: lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
+          lastMessageAt:
+            lastMessageByPeer.get(contact.id)?.toISOString() ?? null,
         })),
       );
     }
@@ -219,8 +270,13 @@ export class MessagesService {
       },
     });
 
-    const byId = new Map<number, { id: number; fullName: string; email: string; role: Role }>();
-    enrollments.forEach((e) => byId.set(e.course.teacher.id, e.course.teacher as any));
+    const byId = new Map<
+      number,
+      { id: number; fullName: string; email: string; role: string }
+    >();
+    enrollments.forEach((e) =>
+      byId.set(e.course.teacher.id, this.toContactUser(e.course.teacher)),
+    );
 
     return sortByLastMessage(
       Array.from(byId.values()).map((contact) => ({
@@ -238,7 +294,9 @@ export class MessagesService {
 
     const allowed = await this.canMessageEachOther(user.sub, otherUserId);
     if (!allowed) {
-      throw new ForbiddenException('Messaging is only allowed between linked teacher and student');
+      throw new ForbiddenException(
+        'Messaging is only allowed between linked teacher and student',
+      );
     }
 
     return (this.prisma as any).message.findMany({
@@ -259,7 +317,9 @@ export class MessagesService {
   async markAsRead(otherUserId: number, user: { sub: number; role: Role }) {
     const allowed = await this.canMessageEachOther(user.sub, otherUserId);
     if (!allowed) {
-      throw new ForbiddenException('Messaging is only allowed between linked teacher and student');
+      throw new ForbiddenException(
+        'Messaging is only allowed between linked teacher and student',
+      );
     }
 
     const result = await (this.prisma as any).message.updateMany({
@@ -284,7 +344,9 @@ export class MessagesService {
 
     const allowed = await this.canMessageEachOther(user.sub, dto.recipientId);
     if (!allowed) {
-      throw new ForbiddenException('Messaging is only allowed between linked teacher and student');
+      throw new ForbiddenException(
+        'Messaging is only allowed between linked teacher and student',
+      );
     }
 
     const created = await (this.prisma as any).message.create({
@@ -302,7 +364,10 @@ export class MessagesService {
     this.logger.log(
       `[AUDIT] Message created: id=${created.id} from=${user.sub} to=${dto.recipientId} length=${dto.content.trim().length}`,
     );
-    this.messagesGateway.emitMessageToUsers([user.sub, dto.recipientId], created);
+    this.messagesGateway.emitMessageToUsers(
+      [user.sub, dto.recipientId],
+      created,
+    );
 
     return created;
   }

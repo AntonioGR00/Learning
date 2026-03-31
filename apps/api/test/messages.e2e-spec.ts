@@ -19,8 +19,18 @@ describe('Messages REST (e2e)', () => {
   const teacherId = 1;
   const studentId = 2;
 
-  const mockTeacher = { id: teacherId, email: 'teacher@test.com', fullName: 'Test Teacher', role: Role.TEACHER };
-  const mockStudent = { id: studentId, email: 'student@test.com', fullName: 'Test Student', role: Role.STUDENT };
+  const mockTeacher = {
+    id: teacherId,
+    email: 'teacher@test.com',
+    fullName: 'Test Teacher',
+    role: Role.TEACHER,
+  };
+  const mockStudent = {
+    id: studentId,
+    email: 'student@test.com',
+    fullName: 'Test Student',
+    role: Role.STUDENT,
+  };
 
   const mockMessage = {
     id: 1,
@@ -70,7 +80,11 @@ describe('Messages REST (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }),
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     await app.init();
   });

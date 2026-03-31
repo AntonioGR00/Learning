@@ -7,14 +7,21 @@ import { JwtPayload } from './types/jwt-payload.interface';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
+    const jwtAccessSecret = configService.get<string>('JWT_ACCESS_SECRET');
+    if (!jwtAccessSecret) {
+      throw new Error(
+        'Missing required environment variable: JWT_ACCESS_SECRET',
+      );
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') ?? 'access_secret',
+      secretOrKey: jwtAccessSecret,
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
+  validate(payload: JwtPayload): JwtPayload {
     return payload;
   }
 }

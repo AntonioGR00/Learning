@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EducationStage } from '../common/enums/education-stage.enum';
 import { Role } from '../common/enums/role.enum';
 import { PrismaService } from '../prisma/prisma.service';
@@ -79,7 +83,9 @@ export class FamiliesService {
         },
       });
     } catch {
-      throw new ConflictException('This family user is already linked to the student');
+      throw new ConflictException(
+        'This family user is already linked to the student',
+      );
     }
   }
 
@@ -119,11 +125,19 @@ export class FamiliesService {
       return { students: [] };
     }
 
-    const [submissions, attendances, assignments, announcements, notifications] = await Promise.all([
+    const [
+      submissions,
+      attendances,
+      assignments,
+      announcements,
+      notifications,
+    ] = await Promise.all([
       this.prisma.submission.findMany({
         where: { studentId: { in: studentIds } },
         include: {
-          assignment: { select: { id: true, courseId: true, title: true, dueDate: true } },
+          assignment: {
+            select: { id: true, courseId: true, title: true, dueDate: true },
+          },
           grade: true,
         },
         orderBy: { submittedAt: 'desc' },
@@ -175,17 +189,31 @@ export class FamiliesService {
 
     return {
       students: links.map((link) => {
-        const courseIds = link.student.enrollments.map((enrollment) => enrollment.course.id);
+        const courseIds = link.student.enrollments.map(
+          (enrollment) => enrollment.course.id,
+        );
         return {
           relationship: link.relationship,
           student: link.student,
-          submissions: submissions.filter((submission) => submission.studentId === link.studentId),
-          attendance: attendances.filter((attendance) => attendance.studentId === link.studentId),
-          assignments: assignments.filter((assignment) => courseIds.includes(assignment.courseId)),
-          announcements: announcements.filter(
-            (announcement) => announcement.courseId === null || (announcement.courseId ? courseIds.includes(announcement.courseId) : true),
+          submissions: submissions.filter(
+            (submission) => submission.studentId === link.studentId,
           ),
-          notifications: notifications.filter((notification) => notification.recipientId === link.studentId),
+          attendance: attendances.filter(
+            (attendance) => attendance.studentId === link.studentId,
+          ),
+          assignments: assignments.filter((assignment) =>
+            courseIds.includes(assignment.courseId),
+          ),
+          announcements: announcements.filter(
+            (announcement) =>
+              announcement.courseId === null ||
+              (announcement.courseId
+                ? courseIds.includes(announcement.courseId)
+                : true),
+          ),
+          notifications: notifications.filter(
+            (notification) => notification.recipientId === link.studentId,
+          ),
         };
       }),
     };

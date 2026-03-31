@@ -95,7 +95,10 @@ export class CoursesService {
     return course;
   }
 
-  async enroll(enrollDto: EnrollStudentDto, requester: { sub: number; role: Role }) {
+  async enroll(
+    enrollDto: EnrollStudentDto,
+    requester: { sub: number; role: Role },
+  ) {
     const course = await this.prisma.course.findUnique({
       where: { id: enrollDto.courseId },
     });
@@ -105,7 +108,9 @@ export class CoursesService {
     }
 
     if (requester.role === Role.TEACHER && course.teacherId !== requester.sub) {
-      throw new ForbiddenException('Only the assigned teacher can enroll students');
+      throw new ForbiddenException(
+        'Only the assigned teacher can enroll students',
+      );
     }
 
     return this.prisma.enrollment.upsert({
@@ -123,15 +128,22 @@ export class CoursesService {
     });
   }
 
-  async availableStudents(courseId: number, requester: { sub: number; role: Role }) {
-    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+  async availableStudents(
+    courseId: number,
+    requester: { sub: number; role: Role },
+  ) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
 
     if (!course) {
       throw new NotFoundException('Course not found');
     }
 
     if (requester.role === Role.TEACHER && course.teacherId !== requester.sub) {
-      throw new ForbiddenException('Only the assigned teacher can view available students');
+      throw new ForbiddenException(
+        'Only the assigned teacher can view available students',
+      );
     }
 
     return this.prisma.user.findMany({
@@ -161,10 +173,16 @@ export class CoursesService {
     }
 
     if (requester.role === Role.TEACHER && course.teacherId !== requester.sub) {
-      throw new ForbiddenException('Only the assigned teacher can update this course');
+      throw new ForbiddenException(
+        'Only the assigned teacher can update this course',
+      );
     }
 
-    if (requester.role === Role.TEACHER && updateDto.teacherId && updateDto.teacherId !== requester.sub) {
+    if (
+      requester.role === Role.TEACHER &&
+      updateDto.teacherId &&
+      updateDto.teacherId !== requester.sub
+    ) {
       throw new ForbiddenException('Teachers cannot reassign courses');
     }
 
@@ -185,7 +203,8 @@ export class CoursesService {
         code: updateDto.code,
         title: updateDto.title,
         description: updateDto.description,
-        teacherId: requester.role === Role.TEACHER ? requester.sub : updateDto.teacherId,
+        teacherId:
+          requester.role === Role.TEACHER ? requester.sub : updateDto.teacherId,
       },
       include: { teacher: true },
     });

@@ -112,12 +112,15 @@ export class UsersService {
       throw new BadRequestException('You cannot delete your own account');
     }
 
-    const [taughtCoursesCount, createdAssignmentsCount, authoredAnnouncementsCount] =
-      await Promise.all([
-        this.prisma.course.count({ where: { teacherId: id } }),
-        this.prisma.assignment.count({ where: { createdById: id } }),
-        this.prisma.announcement.count({ where: { authorId: id } }),
-      ]);
+    const [
+      taughtCoursesCount,
+      createdAssignmentsCount,
+      authoredAnnouncementsCount,
+    ] = await Promise.all([
+      this.prisma.course.count({ where: { teacherId: id } }),
+      this.prisma.assignment.count({ where: { createdById: id } }),
+      this.prisma.announcement.count({ where: { authorId: id } }),
+    ]);
 
     if (taughtCoursesCount > 0) {
       throw new ConflictException(

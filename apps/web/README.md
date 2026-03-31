@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web - Plataforma Escolar
 
-## Getting Started
+Frontend Next.js de la plataforma escolar.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js 16 (App Router)
+- React 19
+- Tailwind CSS 4
+- Socket.IO client
+
+## Requisitos
+
+- Node.js 20+
+- npm 10+
+- API backend activa en `http://localhost:4000/api` o URL equivalente
+
+## Variables de entorno
+
+Copia `apps/web/.env.local.example` a `apps/web/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Arranque en desarrollo
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Desde la raiz del monorepo:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm --prefix apps/web run dev
+```
 
-## Learn More
+Aplicacion: `http://localhost:3000`
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts utiles
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm --prefix apps/web run dev
+npm --prefix apps/web run build
+npm --prefix apps/web run start
+npm --prefix apps/web run lint
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Flujos principales
 
-## Deploy on Vercel
+- Login con credenciales seed y almacenamiento de sesion local
+- Dashboard por rol: `ADMIN`, `TEACHER`, `STUDENT`, `FAMILY`
+- Gestion de usuarios, cursos, tareas, asistencia y calificaciones
+- Mensajeria en tiempo real con Socket.IO
+- Centro de notificaciones
+- Reportes/exportaciones (XLSX y PDF)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Integracion con API
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Cliente base en `src/lib/api.ts`
+- Refresh automatico de token ante `401` con `POST /auth/refresh`
+- Uso de `Authorization: Bearer <accessToken>`
+
+## Build de produccion
+
+```bash
+npm --prefix apps/web run build
+npm --prefix apps/web run start
+```
+
+Notas:
+
+- Verifica que `NEXT_PUBLIC_API_URL` apunte al backend de produccion.
+- Si usas proxy inverso, enruta `/api/*` y `/socket.io/*` hacia la API.
+
+## Estado de pruebas
+
+Actualmente no hay suite automatizada de tests frontend en este paquete.
+
+Recomendacion minima antes de release:
+
+- Tests de smoke para login, dashboard y mensajeria
+- Flujo de regresion por rol

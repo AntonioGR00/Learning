@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.git
+.github
+.next
+**/.next
+dist
+**/dist
+coverage
+**/coverage
+postgres_data
+npm-debug.log*
+*.log
+.env
+.env.*
+apps/api/uploads

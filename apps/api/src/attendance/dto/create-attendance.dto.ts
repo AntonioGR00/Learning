@@ -1,6 +1,12 @@
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateAttendanceDto {
   @Type(() => Number)
