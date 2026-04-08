@@ -100,17 +100,17 @@ export default function Home() {
                 Gestion escolar con acceso claro por rol.
               </h1>
               <p className="max-w-xl text-base leading-8 text-[#55635d] sm:text-lg">
-                Base inicial conectada a Next.js y NestJS con PostgreSQL y JWT.
-                Desde aqui ya puedes autenticarte y validar la sesion del
-                administrador.
+                Plataforma academica para centralizar la administracion,
+                comunicacion y seguimiento de la comunidad educativa.
+                Inicia sesion para acceder a tu panel segun tu perfil.
               </p>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <InfoCard label="Backend" value="NestJS + JWT" />
-            <InfoCard label="Base de datos" value="PostgreSQL" />
-            <InfoCard label="Frontend" value="Next.js 16" />
+            <InfoCard label="Seguridad" value="Acceso protegido por perfiles" />
+            <InfoCard label="Operacion" value="Gestion unificada del colegio" />
+            <InfoCard label="Comunicacion" value="Mensajes y avisos centralizados" />
           </div>
         </div>
 
