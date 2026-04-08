@@ -108,14 +108,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build production images
-        run: docker compose -f docker-compose.prod.yml build
+      - name: Build API production image
+        run: docker compose -f docker-compose.prod.yml build api
 
-      - name: Start production stack
-        run: docker compose -f docker-compose.prod.yml up -d
+      - name: Build web production image
+        run: docker compose -f docker-compose.prod.yml build web
 
-      - name: Run Prisma migrations in API container
-        run: docker compose -f docker-compose.prod.yml exec -T api npm --prefix apps/api run prisma:deploy
+      - name: Start Postgres
+        run: docker compose -f docker-compose.prod.yml up -d --no-build postgres
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if docker compose -f docker-compose.prod.yml exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres readiness check failed"
+          docker compose -f docker-compose.prod.yml logs postgres --tail 200
+          exit 1
+
+      - name: Run Prisma migrations
+        run: docker compose -f docker-compose.prod.yml run --rm --no-deps api npm --prefix apps/api run prisma:deploy
+
+      - name: Start API and web
+        run: docker compose -f docker-compose.prod.yml up -d --no-build api web
 
       - name: Wait for API health
         run: |
